@@ -1,2 +1,85 @@
-teste
-teste 2
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Servidor</title>
+</head>
+
+<body>
+    <script>
+        function isJson(str) {
+            try {
+                JSON.parse(str);
+            }
+            catch (e) {
+                return false;
+            }
+            return true;
+        }
+        function init() {
+            loading = true;
+            ws = new WebSocket('ws:192.168.15.15:8080');
+
+            //Connection open event handler
+            ws.onopen = function (evt) {
+                ws.send(JSON.stringify({ action: 'join', name: 'Browser' }));
+            }
+
+            ws.onerror = function (msg) {
+                alert('socket error:' + msg.toString());
+            }
+
+            //if their socket closes unexpectedly, re-establish the connection
+            ws.onclose = function () {
+                init();
+            }
+
+            //Event Handler to receive messages from server
+            ws.onmessage = function (message) {
+                
+                if (message.data === 'ping') {
+                    ws.send('pong');
+                    console.log('ping')
+                }
+                else {
+                    if (message.data) {
+                        console.log("ANTES DO IF")
+                        console.log(message.data.userList)
+                        if (isJson(message.data)) {
+                            const obj = JSON.parse(message.data)
+                            console.log("Depois do IF")
+                            console.log(obj.userList)
+
+
+                            if (obj.userList) {
+                                console.log("recebido user list")
+                                //remove the current users in the list
+                                userListElement = document.getElementById('userList');
+                                console.log(userListElement)
+                                while (userListElement.hasChildNodes()) {
+                                    userListElement.removeChild(userListElement.lastChild);
+                                }
+                                console.log(userListElement)
+                                //add on the new users to the list
+                                for (var i = 0; i < obj.userList.length; i++) {
+
+                                    var span = document.createElement('span');
+                                    span.className = 'user';
+                                    span.style.display = 'block';
+                                    span.innerHTML = obj.userList[i].name;
+                                    userListElement.appendChild(span);
+                                }
+                            }
+                        }
+                    }
+                }
+                return false;
+            }
+        }
+        init();
+    </script>
+</body>
+
+</html>
