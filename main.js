@@ -1,6 +1,6 @@
 const express = require('express');
 const app = express();
-const http_port = 80
+const http_port = 3000
 const ws_port = 8080
 const ip = '0.0.0.0'
 
