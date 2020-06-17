@@ -2,7 +2,7 @@ const express = require('express');
 const app = express();
 const http_port = 3000
 const ws_port = 8080
-const ip = '192.168.15.16'
+const ip = '192.168.15.15'
 
 app.listen(http_port, ip, function () {
     console.log('\nEscutando em ' + ip + ':' + http_port + '\n')
