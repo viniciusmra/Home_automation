@@ -2,7 +2,7 @@ const express = require('express');
 const app = express();
 const http_port = 3000
 const ws_port = 8080
-const ip = '192.168.15.15'
+const ip = '192.168.15.16'
 
 app.listen(http_port, ip, function () {
     console.log('\nEscutando em ' + ip + ':' + http_port + '\n')
@@ -23,7 +23,7 @@ wss = new WebSocketServer({
 })
 
 var userList = [];
-var keepAliveInterval = 2000; //5 seconds
+var keepAliveInterval = 10000; //5 seconds
 
 //JSON string parser
 function isJson(str) {
@@ -50,12 +50,13 @@ wss.on('connection', function connection(ws) {
     var interval = setInterval(function () {
         if (ws.keepAlive) {
             ws.send('ping')
+    
             ws.keepAlive = false;
         }
         else {
             ws.close()
             clearInterval(interval)
-            console.log('Disconnect:', ws.name)]
+            console.log('Disconnect:', ws.name)
             removeUser(ws.name)
         }
     }, keepAliveInterval);
@@ -95,7 +96,10 @@ wss.on('connection', function connection(ws) {
                 sendCommand(obj.device, obj.channel, obj.command)
             }
             if(obj.action === 'status'){
-                console.log(obj.data)
+                console.log(obj)
+                //if(ws.name === 'esp32'){
+                //    
+                //}
                 //sendStatus(ws.name, obj.channel, obj.status)
             }
         }
