@@ -5,10 +5,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Servidor</title>
+    <style>
+        .button {
+            background-color: gray;
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+        }
+    </style>
 </head>
 
 <body>
+    <br>
+    <button id="rpi" class="button" onclick="led()">Clique</button>
+
+
     <script>
+        var ledState = 0;
+        var rpiFound = false
         function isJson(str) {
             try {
                 JSON.parse(str);
@@ -18,6 +38,11 @@
             }
             return true;
         }
+        function led() {
+            ws.send(JSON.stringify({ action: 'command', target: 'rpi', channel: 1, command: ledState }))
+            ledState = !ledState
+            console.log('Comando enviado')
+        }
         function init() {
             loading = true;
             ws = new WebSocket('ws:192.168.15.15:8080');
@@ -25,6 +50,7 @@
             //Connection open event handler
             ws.onopen = function (evt) {
                 ws.send(JSON.stringify({ action: 'join', name: 'Browser' }));
+
             }
 
             ws.onerror = function (msg) {
@@ -33,43 +59,35 @@
 
             //if their socket closes unexpectedly, re-establish the connection
             ws.onclose = function () {
+                console.log("fudeu")
+                ws.send("sadsadsadsadasdasd")
                 init();
             }
 
             //Event Handler to receive messages from server
             ws.onmessage = function (message) {
-                
+
                 if (message.data === 'ping') {
                     ws.send('pong');
                     console.log('ping')
                 }
                 else {
                     if (message.data) {
-                        console.log("ANTES DO IF")
-                        console.log(message.data.userList)
                         if (isJson(message.data)) {
                             const obj = JSON.parse(message.data)
-                            console.log("Depois do IF")
-                            console.log(obj.userList)
-
-
                             if (obj.userList) {
-                                console.log("recebido user list")
-                                //remove the current users in the list
-                                userListElement = document.getElementById('userList');
-                                console.log(userListElement)
-                                while (userListElement.hasChildNodes()) {
-                                    userListElement.removeChild(userListElement.lastChild);
+                                rpiFound = false
+                                for (let i = 0; i < obj.userList.length; i++) {
+                                    if (obj.userList[i].name === 'rpi') {
+                                        rpiFound = true
+                                    }
                                 }
-                                console.log(userListElement)
-                                //add on the new users to the list
-                                for (var i = 0; i < obj.userList.length; i++) {
-
-                                    var span = document.createElement('span');
-                                    span.className = 'user';
-                                    span.style.display = 'block';
-                                    span.innerHTML = obj.userList[i].name;
-                                    userListElement.appendChild(span);
+                                if (rpiFound) {
+                                    console.log('rpi connected')
+                                    document.getElementById("rpi").style.backgroundColor = "blue";
+                                }
+                                else {
+                                    document.getElementById("rpi").style.backgroundColor = "black";
                                 }
                             }
                         }

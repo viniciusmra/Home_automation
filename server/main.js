@@ -22,8 +22,14 @@ wss = new WebSocketServer({
     server: app
 })
 
+var nedb = require('nedb');
+var logdb = new nedb({ filename: 'log.db' })
+logdb.loadDatabase();
+logdb.insert({ timeStamp: Date.now(), action: 'start', name: 'server' })
+
 var userList = [];
 var keepAliveInterval = 10000; //5 seconds
+
 
 //JSON string parser
 function isJson(str) {
@@ -39,31 +45,27 @@ function isJson(str) {
 //WebSocket connection open handler
 wss.on('connection', function connection(ws) {
 
-    function removeUser(client) {
-        for (var i = 0; i < userList.length; i++) {
-            if (userList[i].name === client) {
-                userList.splice(i, 1);
-            }
-        }
-
-    }
     var interval = setInterval(function () {
         if (ws.keepAlive) {
             ws.send('ping')
-    
             ws.keepAlive = false;
         }
         else {
-            ws.close()
-            clearInterval(interval)
-            console.log('Disconnect:', ws.name)
-            removeUser(ws.name)
+            ws.terminate()
         }
     }, keepAliveInterval);
-    function sendCommand(device, channel, command){
 
+    function sendCommand(obj) {
+        var found = false;
+        wss.clients.forEach(function each(ws) {
+            if (ws.name === obj.target) {
+                ws.send(JSON.stringify({ action: 'command', channel: obj.channel, command: obj.command }))
+                found = true;
+            }
+        })
+        return found
     }
-    function sendStatus(device, channel, status){
+    function sendStatus(device, channel, status) {
 
     }
 
@@ -71,36 +73,36 @@ wss.on('connection', function connection(ws) {
     ws.on('message', function incoming(message) {
         if (message == 'pong') {
             ws.keepAlive = true;
+            if (ws.name === 'browser') {
+                ws.send(JSON.stringify({ userList: userList }))
+
+            }
         }
         else if (isJson(message)) {
             var obj = JSON.parse(message);
-
-            //client is responding to keepAlive
-            if (obj.keepAlive !== undefined) {
-                pong(obj.keepAlive.toLowerCase());
-            }
-
+           //console.log(obj)
             if (obj.action === 'join') {
                 console.log('Join:', obj.name.toLocaleLowerCase());
                 ws.name = obj.name.toLocaleLowerCase()
                 ws.keepAlive = true;
-                //start pinging to keep alive
-
                 if (userList.filter(function (e) { return e.name == obj.name.toLowerCase(); }).length <= 0) {
                     userList.push({ name: obj.name.toLowerCase() });
                 }
-                console.log('User List:', userList)
-
+                logdb.insert({ timeStamp: Date.now(), action: obj.action, name: obj.name })
             }
-            if (obj.action === 'command') {
-                sendCommand(obj.device, obj.channel, obj.command)
+            else if (obj.action === 'command') {
+                if (sendCommand(obj)) {
+                    console.log('Command: ' + ws.name + ' > ' + obj.target + ' true')
+                    logdb.insert({ timeStamp: Date.now(), action: 'command', name: ws.name, target: obj.target, channel: obj.channel, command: obj.command, sent: true })
+                }
+                else {
+                    console.log('Command: ' + ws.name + ' > ' + obj.target + ' false')
+                    logdb.insert({ timeStamp: Date.now(), action: 'command', name: ws.name, target: obj.target, channel: obj.channel, command: obj.command, sent: false })
+                }
             }
-            if(obj.action === 'status'){
-                console.log(obj)
-                //if(ws.name === 'esp32'){
-                //    
-                //}
-                //sendStatus(ws.name, obj.channel, obj.status)
+            else if (obj.action === 'status') {
+                console.log('Status: ' + ws.name)
+                logdb.insert({ timeStamp: Date.now(), action: 'status', name: ws.name, ch1: obj.ch1, ch2: obj.ch2, ch3: obj.ch3, ch4: obj.ch4, ch5: obj.ch5})
             }
         }
         else {
@@ -109,8 +111,16 @@ wss.on('connection', function connection(ws) {
 
         return false;
     });
-    wss.on('close', function close() {
-        console.log('fechado')
+    ws.on('close', function close() {
+        logdb.insert({ timeStamp: Date.now(), action: 'close', name: ws.name })
+        clearInterval(interval)
+        console.log('Disconnect:', ws.name)
+        for (var i = 0; i < userList.length; i++) {
+            if (userList[i].name === ws.name) {
+                userList.splice(i, 1);
+            }
+        }
+
     })
 });
 
