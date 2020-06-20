@@ -27,6 +27,8 @@ var logdb = new nedb({ filename: 'log.db' })
 logdb.loadDatabase();
 logdb.insert({ timeStamp: Date.now(), action: 'start', name: 'server' })
 
+var userListList = ['browser']
+var statusList = ['browser']
 var userList = [];
 var keepAliveInterval = 10000; //5 seconds
 
@@ -65,7 +67,23 @@ wss.on('connection', function connection(ws) {
         })
         return found
     }
-    function sendStatus(device, channel, status) {
+    function sendStatus(obj) {
+        wss.clients.forEach(function each(ws) {
+            for (let i = 0; i < statusList.length; i++) {
+                if (ws.name == statusList[i]) {
+                    ws.send(JSON.stringify({action: 'status', name: obj.name, ch1: obj.ch1, ch2: obj.ch2, ch3: obj.ch3, ch4: obj.ch4, ch5: obj.ch5 }))
+                }
+            }
+        })
+    }
+    function sendUserList() {
+        wss.clients.forEach(function each(ws) {
+            for (let i = 0; i < userListList.length; i++) {
+                if (ws.name == userListList[i]) {
+                    ws.send(JSON.stringify({ userList: userList }))
+                }
+            }
+        })
 
     }
 
@@ -73,14 +91,10 @@ wss.on('connection', function connection(ws) {
     ws.on('message', function incoming(message) {
         if (message == 'pong') {
             ws.keepAlive = true;
-            if (ws.name === 'browser') {
-                ws.send(JSON.stringify({ userList: userList }))
-
-            }
         }
         else if (isJson(message)) {
             var obj = JSON.parse(message);
-           //console.log(obj)
+            //console.log(obj)
             if (obj.action === 'join') {
                 console.log('Join:', obj.name.toLocaleLowerCase());
                 ws.name = obj.name.toLocaleLowerCase()
@@ -88,6 +102,7 @@ wss.on('connection', function connection(ws) {
                 if (userList.filter(function (e) { return e.name == obj.name.toLowerCase(); }).length <= 0) {
                     userList.push({ name: obj.name.toLowerCase() });
                 }
+                sendUserList()
                 logdb.insert({ timeStamp: Date.now(), action: obj.action, name: obj.name })
             }
             else if (obj.action === 'command') {
@@ -102,7 +117,9 @@ wss.on('connection', function connection(ws) {
             }
             else if (obj.action === 'status') {
                 console.log('Status: ' + ws.name)
-                logdb.insert({ timeStamp: Date.now(), action: 'status', name: ws.name, ch1: obj.ch1, ch2: obj.ch2, ch3: obj.ch3, ch4: obj.ch4, ch5: obj.ch5})
+                obj.name = ws.name
+                logdb.insert({ timeStamp: Date.now(), action: 'status', name: obj.name, ch1: obj.ch1, ch2: obj.ch2, ch3: obj.ch3, ch4: obj.ch4, ch5: obj.ch5 })
+                sendStatus(obj)
             }
         }
         else {
@@ -120,7 +137,7 @@ wss.on('connection', function connection(ws) {
                 userList.splice(i, 1);
             }
         }
-
+        sendUserList()
     })
 });
 

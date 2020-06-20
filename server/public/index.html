@@ -69,12 +69,12 @@
 
                 if (message.data === 'ping') {
                     ws.send('pong');
-                    console.log('ping')
                 }
                 else {
                     if (message.data) {
                         if (isJson(message.data)) {
                             const obj = JSON.parse(message.data)
+                            //console.log(obj)
                             if (obj.userList) {
                                 rpiFound = false
                                 for (let i = 0; i < obj.userList.length; i++) {
@@ -88,6 +88,14 @@
                                 }
                                 else {
                                     document.getElementById("rpi").style.backgroundColor = "black";
+                                }
+                            }
+                            else if(obj.action === 'status'){
+                                if(obj.name === 'rpi' && obj.ch1){
+                                    document.getElementById("rpi").style.backgroundColor = "green";
+                                }
+                                else if(obj.name === 'rpi' && !obj.ch1){
+                                    document.getElementById("rpi").style.backgroundColor = "red";
                                 }
                             }
                         }
